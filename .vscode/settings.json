@@ -1,5 +1,5 @@
 {
-    "python.defaultInterpreterPath": "${workspaceFolder}/.dbt_env/bin/python",
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scipts/python.exe",
     "dbt.projectDir": "${workspaceFolder}",
     "sqlfluff.adapter": "postgres"
   }
