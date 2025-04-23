@@ -1,0 +1,7 @@
+requests==2.28.0
+beautifulsoup4==4.13.4
+selenium==4.29.0
+pandas==2.2.3
+supabase==2.15.0
+python-dotenv==0.13.0
+dbt-postgres==1.7.4
