@@ -6,3 +6,4 @@ supabase==2.15.0
 python-dotenv==0.13.0
 dbt-postgres==1.7.4
 setuptools  # -- 77.0.1 
+pytz==2025.2

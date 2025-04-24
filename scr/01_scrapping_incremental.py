@@ -8,6 +8,8 @@ from supabase import create_client
 import os
 import pandas as pd
 import time
+from datetime import datetime
+import pytz
 
 
 # config supabase
@@ -20,7 +22,7 @@ supabase = create_client(url, key)
 
 
 # === inicio
-data_str = "2025-04-22"  # Data inicial - manual - hoje
+data_str = datetime.now(pytz.timezone('America/Manaus')).strftime('%Y-%m-%d')
 dominio = "https://mi.tv"
 pais = "br"
 rota = "canais"
