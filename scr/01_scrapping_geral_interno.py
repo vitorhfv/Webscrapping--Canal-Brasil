@@ -8,29 +8,32 @@ from supabase import create_client
 import os
 import pandas as pd
 import time
+import pytz
 
 
-# config supabase
-
-load_dotenv()  # Isso lê o arquivo .env automaticamente
+# configurando o supabase
+load_dotenv()
 url = os.environ.get("SUPABASE_URL")
 key = os.environ.get("SUPABASE_KEY")
-
 supabase = create_client(url, key)
 
+# exclui todos os dados existentes
+print("Excluindo todos os registros existentes...")
+supabase.table('canal_brasil').delete().neq('id', 0).execute()
 
-# === inicio
-data_str = "2025-04-22"  # Data inicial - manual - hoje
+# Parâmetros
+data_inicial_str = "2025-01-01"  # Data inicial para repopulação
+data_inicial = datetime.strptime(data_inicial_str, "%Y-%m-%d")
+data_final = datetime.now()  # Data final é hoje
+
 dominio = "https://mi.tv"
 pais = "br"
 rota = "canais"
 canal = "canal-brasil"
 
-# função para formatar data para a URL
 def formatar_data(data):
-    return data.strftime("%Y-%m-%d")
+    return data.astimezone(pytz.timezone('America/Manaus')).strftime("%Y-%m-%d")
 
-# função para extrair programas de um dia específico
 def extrair_programas(driver, data_str):
     programas = []
     full_url = f"{dominio}/{pais}/{rota}/{canal}/{data_str}"
@@ -38,18 +41,18 @@ def extrair_programas(driver, data_str):
     time.sleep(5)
 
     try:
-        h1 = driver.find_element(By.TAG_NAME, "h1")
-        dia_url = data_str.split("-")[-1]
-        if dia_url not in h1.text:
-            print(f"Dia no título não corresponde ao dia do link para {data_str}. Encerrando...")
+        elemento_data = driver.find_element(By.XPATH, '//*[@id="page-contents"]/div[1]/ul/li[3]/a')
+        data_site = elemento_data.text.strip()
+        data_convertida = datetime.strptime(data_str, "%Y-%m-%d").strftime("%d/%m/%Y")
+        
+        if data_convertida != data_site:
+            print(f"Divergência de datas: URL {data_str} vs Site {data_site}")
             return None
-        else:
-            print(f"Dia validado com sucesso para {data_str}.")
+        print(f"Validação bem-sucedida! Data URL: {data_str} = Data Site: {data_site}")
     except Exception as e:
-        print(f"Erro ao verificar o título para {data_str}:", e)
+        print(f"Erro crítico na validação: {str(e)}")
         return None
 
-    # extrair os programas
     lis = driver.find_elements(By.XPATH, '//*[@id="listings"]/ul/li')
     for i, li in enumerate(lis, start=1):
         try:
@@ -70,13 +73,15 @@ def extrair_programas(driver, data_str):
 
     return programas
 
-######################## abrir chrome e fazer o scrap
+# Abrir Chrome e fazer o scrap
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
 
 todos_programas = []
 
-data_atual = datetime.strptime(data_str, "%Y-%m-%d")
-for i in range(7):  
+dias_total = (data_final.date() - data_inicial.date()).days + 1
+
+for i in range(dias_total):
+    data_atual = data_inicial + timedelta(days=i)
     data_str_formatada = formatar_data(data_atual)
     print(f"Extraindo dados para {data_str_formatada}...")
 
@@ -88,40 +93,19 @@ for i in range(7):
     else:
         print(f"Sem dados ou erro para {data_str_formatada}. Parando...")
 
-    data_atual += timedelta(days=1)
-
 driver.quit()
 
-# === Converter para df ===
-# df = pd.DataFrame(todos_programas)
-
-# df.to_csv('dataraw.csv', index = False)
-
-def converter_dados_para_json(df):
-    """Converte colunas de data/horario para strings ISO"""
-    df = df.copy()
-    
-    # Converter date para string ISO (ex: '2025-04-22')
-    if 'data' in df.columns:
-        df['data'] = df['data'].apply(
-            lambda x: x.isoformat() if isinstance(x, (date, datetime)) else str(x)
-        )
-    
-    # Converter time para string (ex: '05:00:00')
-    if 'horario' in df.columns:
-        df['horario'] = df['horario'].apply(
-            lambda x: x.strftime("%H:%M:%S") if isinstance(x, time) else str(x)
-        )
-    
-    return df.to_dict('records')
-
+# Inserir todos os dados coletados
 if todos_programas:
     df = pd.DataFrame(todos_programas)
-    
-    # Mantém os dados crus (sem transformações)
     df['data'] = df['data'].astype(str)
     df['horario'] = df['horario'].astype(str)
-    
-    # Insere tudo sem preocupação com duplicatas
-    supabase.table('canal_brasil').insert(df.to_dict('records')).execute()
-
+    # Inserir em lotes para evitar problemas com conjuntos grandes de dados
+    batch_size = 100
+    for i in range(0, len(df), batch_size):
+        batch = df.iloc[i:i+batch_size]
+        supabase.table('canal_brasil').insert(batch.to_dict('records')).execute()
+        print(f"Lote {i//batch_size + 1} inserido com sucesso")
+    print(f"Total de {len(df)} registros inseridos no Supabase.")
+else:
+    print("Nenhum dado para inserir.")
