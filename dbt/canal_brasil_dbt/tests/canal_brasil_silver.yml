@@ -1,0 +1,11 @@
+version: 2
+
+models:
+  - name: canal_brasil_silver
+    columns:
+      - name: titulo
+        tests:
+          - not_null
+      - name: dia_hora
+        tests:
+          - not_null

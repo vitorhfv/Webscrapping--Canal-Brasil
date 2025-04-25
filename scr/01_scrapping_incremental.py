@@ -35,15 +35,20 @@ class CanalBrasilScraper:
         return data.strftime("%Y-%m-%d")
     
     def extrair_programas(self, data_str):
-        """Extrai programas de um dia específico"""
         programas = []
         full_url = f"{self.dominio}/{self.pais}/{self.rota}/{self.canal}/{data_str}"
         self.driver.get(full_url)
         time.sleep(5)
+         # parseia a data da URL para extrair o dia
+        data_obj = datetime.strptime(data_str, "%Y-%m-%d")
+        dia_url = data_obj.day
+        # formata o dia com zero à esquerda (1 -> 01)
+        dia_url_str = f"{dia_url:02d}"
+
 
         try:
             h1 = self.driver.find_element(By.TAG_NAME, "h1")
-            dia_url = str(int(data_str.split("-")[-1])) 
+            dia_url = data_str.split("-")[-1]
             if dia_url not in h1.text:
                 print(f"Dia no título não corresponde ao dia do link para {data_str}. Encerrando...")
                 return None
@@ -52,7 +57,7 @@ class CanalBrasilScraper:
         except Exception as e:
             print(f"Erro ao verificar o título para {data_str}:", e)
             return None
-
+        
         # extrair os programas
         lis = self.driver.find_elements(By.XPATH, '//*[@id="listings"]/ul/li')
         for i, li in enumerate(lis, start=1):
@@ -177,16 +182,16 @@ class CanalBrasilScraper:
         df['data'] = df['data'].astype(str)
         df['horario'] = df['horario'].astype(str)
         
-        # 1. Deletar e reinserir dados dos últimos N dias
+        # deleta e reinsere dados dos últimos N dias
         datas_refresh = self.deletar_ultimos_n_dias('canal_brasil', dias_refresh)
         df_refresh = df[df['data'].isin(datas_refresh)]
         
-        # 2. Verificar datas mais antigas para inserção incremental
+        # verifica datas mais antigas para inserção incremental
         datas_antigas = [data for data in df['data'].unique() 
                         if data not in datas_refresh and 
                         not self.existe_dados_para_data('canal_brasil', data)]
         
-        # Preparar DataFrame para inserção
+        # prepara o df para inserção
         datas_para_inserir = datas_refresh + datas_antigas
         if not datas_para_inserir:
             print("Nenhum dado novo para inserir.")
@@ -215,3 +220,10 @@ class CanalBrasilScraper:
 if __name__ == "__main__":
     scraper = CanalBrasilScraper()
     scraper.executar_pipeline()
+
+# if __name__ == "__main__": 
+#   -- rodar só a partir de dia especifico e ate que dia
+#     scraper = CanalBrasilScraper()
+#     scraper.data_atual = "2025-04-20"  # <- define a data inicial desejada
+#     dados = scraper.executar_raspagem(dias=3)
+#     scraper.inserir_dados_incrementalmente(dados)

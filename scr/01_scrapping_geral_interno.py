@@ -34,23 +34,27 @@ canal = "canal-brasil"
 def formatar_data(data):
     return data.astimezone(pytz.timezone('America/Manaus')).strftime("%Y-%m-%d")
 
-def extrair_programas(driver, data_str):
+def extrair_programas(self, data_str):
     programas = []
-    full_url = f"{dominio}/{pais}/{rota}/{canal}/{data_str}"
-    driver.get(full_url)
+    full_url = f"{self.dominio}/{self.pais}/{self.rota}/{self.canal}/{data_str}"
+    self.driver.get(full_url)
     time.sleep(5)
+    # parseia a data da URL para extrair o dia
+    data_obj = datetime.strptime(data_str, "%Y-%m-%d")
+    dia_url = data_obj.day
+    # formata o dia com zero à esquerda (1 -> 01)
+    dia_url_str = f"{dia_url:02d}"
 
     try:
-        elemento_data = driver.find_element(By.XPATH, '//*[@id="page-contents"]/div[1]/ul/li[3]/a')
-        data_site = elemento_data.text.strip()
-        data_convertida = datetime.strptime(data_str, "%Y-%m-%d").strftime("%d/%m/%Y")
-        
-        if data_convertida != data_site:
-            print(f"Divergência de datas: URL {data_str} vs Site {data_site}")
+        h1 = self.driver.find_element(By.TAG_NAME, "h1")
+        dia_url = data_str.split("-")[-1]
+        if dia_url not in h1.text:
+            print(f"Dia no título não corresponde ao dia do link para {data_str}. Encerrando...")
             return None
-        print(f"Validação bem-sucedida! Data URL: {data_str} = Data Site: {data_site}")
+        else:
+            print(f"Dia validado com sucesso para {data_str}.")
     except Exception as e:
-        print(f"Erro crítico na validação: {str(e)}")
+        print(f"Erro ao verificar o título para {data_str}:", e)
         return None
 
     lis = driver.find_elements(By.XPATH, '//*[@id="listings"]/ul/li')
@@ -95,12 +99,12 @@ for i in range(dias_total):
 
 driver.quit()
 
-# Inserir todos os dados coletados
+# fazendo o insert
 if todos_programas:
     df = pd.DataFrame(todos_programas)
     df['data'] = df['data'].astype(str)
     df['horario'] = df['horario'].astype(str)
-    # Inserir em lotes para evitar problemas com conjuntos grandes de dados
+    # inserindo em lotes p/ evitar problemas com conjuntos grandes de dados
     batch_size = 100
     for i in range(0, len(df), batch_size):
         batch = df.iloc[i:i+batch_size]
