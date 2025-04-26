@@ -1,0 +1,1 @@
+{"_invocation_id": "d570e854-490d-44cb-a3e7-735c9b26256d", "linked": {"0": {"name": "model.canal_brasil_dbt.canal_brasil_silver", "type": "model"}, "1": {"name": "test.canal_brasil_dbt.no_duplicate_titulo_hora", "type": "test"}}}
